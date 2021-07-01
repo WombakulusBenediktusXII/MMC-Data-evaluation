@@ -1,0 +1,26 @@
+# -*- coding: utf-8 -*-
+"""
+Current Version: 0.1.0 Alpha
+"""
+
+
+v0.2.0 Alpha
+    Added:
+        - .csv output for the calculated energies
+        - Calculation of the total rotaion and translation energies for several measurement series
+        - main.var() where all user-defined variables are included
+        - processing.read() to read in .csv files
+        - processing.sumforline() to get number of lines in a .csv file
+        - conversions.string() to manipulate strings
+
+    Removed:
+        - conversions.xyz_conv() no longer needed, was needed in pre alpha
+
+    Misc:
+        - Diagrams with new y-axis format: 1.3f
+        - Each diagram is now its own object
+        - m is now in g
+        - r is now in mm
+
+v0.1.0 Alpha, 01.07.2021
+    - first release
