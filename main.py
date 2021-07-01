@@ -33,9 +33,9 @@ def var():
     r = 1  # Radius of the spheres used in mm
     auto = True  # Whether the filenames should be created automatically
     do_output = False  # Automatically output .csv files with the calculated energy.
-    # Nutz bitte ermal do_output = True, nur wenn ihr eine datei verwendet z.B. ihr sicher seit das
-    # alle Dateinen von einen measurments element gleich lang sind. Das ist nicht gegeben da noch keine
-    # Synronisaton der Messdaten statt findet.
+    # Please use do_output = True, only if you use a file e.g. you are sure that all 
+    # files of a measurments element are of the same length. This is not given because
+    # there is no Synronisaton of the measurement data jet.
     err_Acc = 0.1
     err_Gyr = 0.1
     return (MMC_names,filenames,measurements,m,r,auto,do_output,err_Acc,err_Gyr)
