@@ -2,6 +2,7 @@
 """
 Created on Mon Apr  5 11:08:55 2021
 @author: Anton
+Version: v0.2-alpha
 
 Copyright (C) 2021  Smart Dust <contact@smartdust-dyt.de>
 
@@ -16,49 +17,50 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 """
 
+from datetime import date
+import time
 import numpy as np
+from matplotlib import pyplot as plt
 import processing as proces
 import conversions as conv
-from matplotlib import pyplot as plt
-import time
-import datetime
 
 def var():
-    MMC_names = ['Hans']#, 'Franz', 'Karl', 'Otto', 'Peter']  # Name of chips can be anything
-    filenames = ['input/Test_Datei.csv']  # Here you can enter the filenames manuall if auto=True then
-    #                                       this will be ignored
-    measurements = ['Gyroscope', 'Accelerometer']  # What has been measured. Change only if the method
-    #                                                has been added or to delete an existing one.
-    m = 1  # Mass of the balls with chip in g
-    r = 1  # Radius of the spheres used in mm
-    auto = True  # Whether the filenames should be created automatically
-    do_output = False  # Automatically output .csv files with the calculated energy.
-    # Please use do_output = True, only if you use a file e.g. you are sure that all 
-    # files of a measurments element are of the same length. This is not given because
-    # there is no Synronisaton of the measurement data jet.
-    err_Acc = 0.1
-    err_Gyr = 0.1
-    return (MMC_names,filenames,measurements,m,r,auto,do_output,err_Acc,err_Gyr)
+    MMC_NAMES = ['Karl']  # Name of chips can be anything
+    FILENAMES = ['input/Test_Datei.csv']  # Here you can enter the filenames
+#                                           manuall, if DO_FILENAME_AUTO=True
+#                                           then this will be ignored
+    MEASUREMENTS = ['AccGyr']  # What has been measured. Change only if the
+#                                method has been added or to delete an existing
+#                                one.
+#                                'Gyroscope', 'Accelerometer', 'AccGyr'
+    M = 0.01496  # Mass of the balls with chip in kg
+    R = 0.02925  # Radius of the spheres used in m
+    DO_FILENAME_AUTO = True  # Whether the filenames should be created automatically
+    DO_OUTPUT = False  # Automatically output .csv files with the calculated energy
+    ACC_ERR = 0.001  # Value of error smoothing for accelerometer
+    GYR_ERR = 0.01  # Value of error smoothing for gyroscoper
+    SENSORPOS = np.array([1.2, 7.4, 4.5])  # Sensor position in 3d in mm.
+
+    return (FILENAMES, M, R, DO_OUTPUT, ACC_ERR, GYR_ERR, MMC_NAMES,
+            MEASUREMENTS, SENSORPOS, DO_FILENAME_AUTO)
+
 
 def main():
-    (MMC_names,filenames,measurements,m,r,auto,do_output,err_Acc,err_Gyr) = var()
+    (FILENAMES, M, R, DO_OUTPUT, ACC_ERR, GYR_ERR,
+     MMC_NAMES, MEASUREMENTS, SENSORPOS, DO_FILENAME_AUTO) = var()
+    if DO_FILENAME_AUTO is True:
+        FILENAMES = proces.str_gen(MMC_NAMES, MEASUREMENTS)
+    MMC_LEN = len(MMC_NAMES)
     n = 0
     i = 0
-    E_trans = np.empty([])
-    E_rot = np.empty([])
+    k = 0
     str_rot = 'Time in s, rotational energy in J, '
-    str_trans = 'Time in s, rotational energy in J, '
-    if auto is True:
-        filenames = []
-        for name in MMC_names:
-            for measured in measurements:
-                fstring = f'input/{name}_{measured}.csv'
-                filenames.append(fstring)
-
-    for filename in filenames:
+    str_trans = 'Time in s, translation energy in J, '
+    str_kin = 'Time in s, kenetic energy in J, '
+    for filename in FILENAMES:
         if 'Accelerometer' in filename:
-            (E_trans_now, t_trans) = proces.accelerometer(filename, m, err_Acc)
-            if do_output is True:
+            (E_trans_now, t) = proces.accelerometer(filename, M, ACC_ERR)
+            if DO_OUTPUT is True:
                 if n == 0:
                     E_trans = E_trans_now
                     n = 1
@@ -66,12 +68,12 @@ def main():
 
                 else:
                     E_trans = np.c_[E_trans, E_trans_now]
-                    E_trans[:, 0] += E_trans_now[:]/len(MMC_names)
+                    E_trans[:, 0] += E_trans_now[:]/MMC_LEN
                     str_trans = conv.string(str_rot, filename, 'A')
 
         elif 'Gyroscope' in filename:
-            (E_rot_now, t_rot) = proces.gyroscope(filename, m, r, err_Gyr)
-            if do_output is True:
+            (E_rot_now, t) = proces.gyroscope(filename, M, R, GYR_ERR)
+            if DO_OUTPUT is True:
                 if i == 0:
                     E_rot = E_rot_now
                     i = 1
@@ -79,29 +81,73 @@ def main():
 
                 else:
                     E_rot = np.c_[E_rot, E_rot_now]
-                    E_rot[:, 0] += E_rot_now[:]/len(MMC_names)
+                    E_rot[:, 0] += E_rot_now[:]/MMC_LEN
                     str_rot = conv.string(str_rot, filename, 'G')
+        elif 'AccGyr' in filename:
+            (E_trans_now, E_rot_now,
+             E_kin_now, t) = proces.accgyr(filename, M, R,
+                                           accgry_err=(GYR_ERR, ACC_ERR),
+                                           sensorpos=SENSORPOS)
+            if DO_OUTPUT is True:
+                if n == 0:
+                    E_trans = E_trans_now
+                    n = 1
+                    str_trans = conv.string(str_rot, filename, 'AccGyr')
+                else:
+                    E_trans = np.c_[E_trans, E_trans_now]
+                    E_trans[:, 0] += E_trans_now[:]/MMC_LEN
+                    str_trans = conv.string(str_rot, filename, 'AccGyr')
 
+                if i == 0:
+                    E_rot = E_rot_now
+                    i = 1
+                    str_rot = conv.string(str_rot, filename, 'AccGyr')
+                else:
+                    E_rot = np.c_[E_rot, E_rot_now]
+                    E_rot[:, 0] += E_rot_now[:]/MMC_LEN
+                    str_rot = conv.string(str_rot, filename, 'AccGyr')
+
+                if k == 0:
+                    E_kin = E_kin_now
+                    k = 1
+                    str_kin = conv.string(str_kin, filename, 'AccGyr')
+                else:
+                    E_kin = np.c_[E_kin, E_kin_now]
+                    E_kin[:, 0] += E_kin_now[:]/MMC_LEN
+                    str_kin = conv.string(str_kin, filename, 'AccGyr')
         else:
             proces.failed(filename)
 
-    if do_output is True:
+    if DO_OUTPUT is True:
         time_local_start = time.time()
-        _date = datetime.date.today()
-        _rng = np.random.randint(0, 100)
-        _str = f'output/E_rot_{_date}_{_rng}.csv'
-        np.savetxt(_str, np.c_[t_rot, E_rot], delimiter=",", header=str_rot)
-        _str = f'output/E_trans_{_date}_{_rng}.csv'
-        np.savetxt(_str, np.c_[t_trans, E_trans], delimiter=",", header=str_trans)
+        to_day = date.today()
+        ID = np.random.randint(0, 10000)
+        test_string = ''
+        for string in MEASUREMENTS:
+            test_string += string
+        if 'Gyroscope' in test_string or 'AccGyr' in test_string:
+            output_string = f'output/E_rot_{to_day}_id-{ID}.csv'
+            np.savetxt(output_string, np.c_[t, E_rot], delimiter=",",
+                       header=str_rot)
+        if 'Accelerometer' in test_string or 'AccGyr' in test_string:
+            output_string = f'output/E_trans_{to_day}_id-{ID}.csv'
+            np.savetxt(output_string, np.c_[t, E_trans], delimiter=",",
+                       header=str_trans)
+        if 'AccGyr' in test_string:
+            output_string = f'output/E_kin_{to_day}_id-{ID}.csv'
+            np.savetxt(output_string, np.c_[t, E_kin], delimiter=",",
+                       header=str_kin)
         time_local_end = time.time()
         time_local = round((time_local_end - time_local_start), 3)
         print(f'It took {time_local}s to create the output files.')
     return
 
+
 if __name__ == '__main__':
+    print('Program starts')
     time_global_start = time.time()
     main()
     time_global_end = time.time()
     time_global = round((time_global_end - time_global_start), 3)
-    print(f'It took {time_global}s time.')
+    print(f'It took {time_global}s to run the program.')
     plt.show()

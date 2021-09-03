@@ -1,26 +1,40 @@
 # -*- coding: utf-8 -*-
 """
-Current Version: 0.1.0 Alpha
+Curent Version: v0.2-alpha
 """
 
 
-v0.2.0 Alpha
+v0.2-alpha
     Added:
         - .csv output for the calculated energies
+            - Output in this format: f'{energy}_{date}_id-{ID}.csv'
         - Calculation of the total rotaion and translation energies for several measurement series
         - main.var() where all user-defined variables are included
-        - processing.read() to read in .csv files
-        - processing.sumforline() to get number of lines in a .csv file
+        - processing.accgyr() For translation with rotation when the sensor is not positioned in the center
+        - subprocessing.read() to read in .csv files
+        - subprocessing.sumforline() to get number of lines in a .csv file
+        - subprocessing.str_gen() to create it iteration string
+        - subprocessing.graph2d() to create the 2d energy graphs
+        - subprocessing.graph3d() to create the 3d trajectory graphs
+        - subprocessing.synchronize() to to synchronize two measurement series
+        - conversions.vecrot() To rotate a vector
         - conversions.string() to manipulate strings
+        - conversions.intaxis() to interpolate an axis
+        - conversions.xyz() to compute the trajectory
+        - conversions._ktest()
+        - docstring to all functions
 
     Removed:
         - conversions.xyz_conv() no longer needed, was needed in pre alpha
 
-    Misc:
-        - Diagrams with new y-axis format: 1.3f
-        - Each diagram is now its own object
-        - m is now in g
-        - r is now in mm
+    Bugs:
+        - When outputting files, it has not been checked whether these measurements have
+          been performed at all. This could lead to crashes. This test is now in place.
 
-v0.1.0 Alpha, 01.07.2021
+    Misc:
+        - Diagrams with new y-axis format: 1.2f
+        - Each diagram is now its own object
+        - conversion.time() now called conversion.timestep()
+
+v0.1-alpha, 01.07.2021
     - first release
