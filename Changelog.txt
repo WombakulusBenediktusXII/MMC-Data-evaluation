@@ -3,7 +3,7 @@
 Curent Version: v0.3-alpha
 """
 
-v0.3-alpha
+v0.3-alpha, 29.09.2021
     Added:
         - module config_parser to read the config file in
         - config.ini config file see doc.txt for documentation
