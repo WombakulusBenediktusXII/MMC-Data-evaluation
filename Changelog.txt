@@ -1,10 +1,36 @@
 # -*- coding: utf-8 -*-
 """
-Curent Version: v0.2-alpha
+Curent Version: v0.3-alpha
 """
 
+v0.3-alpha
+    Added:
+        - module config_parser to read the config file in
+        - config.ini config file see doc.txt for documentation
+        - config_parser.get_config()
+        - config_parser._main_config()
+        - config_parser._acc_config()
+        - config_parser._gyr_config()
+        - config_parser._graph_config()
+        - config_parser._int_config()
+        - config_parser.float_config()
+        - config_parser._array_config()
+        - config_parser._list_config()
+        - config_parser._bool_config()
+        - config_parser._str_config()
+        - config_parser._test_list()
 
-v0.2-alpha
+    Removed:
+        -
+
+    Bugs:
+        -
+
+    Mics:
+        - doc.txt for the documentation of the config.ini
+
+
+v0.2-alpha, 03.09.2021
     Added:
         - .csv output for the calculated energies
             - Output in this format: f'{energy}_{date}_id-{ID}.csv'

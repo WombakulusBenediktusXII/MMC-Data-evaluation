@@ -2,8 +2,11 @@
 """
 Created on Sun Aug  8 17:31:14 2021
 @author: Anton
+Version: v0.3-alpha
 
-The Subprocessing module contains all functions responsible for the subprocessing of data.
+
+The Subprocessing module contains all functions responsible for the
+subprocessing of data.
 These are:
     read(), sumforline(), grap2d(), graph3d(), synchronize()
 """
@@ -13,7 +16,9 @@ from matplotlib import pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
 import conversions as conv
 
-def read(filename='', delimiter=',', skip_header=1):
+
+def read(filename: str, delimiter: str = ',',
+         skip_header: int = 1) -> np.ndarray:
     """
     Reads a .csv file. The first line is skipped. The delimiter ist ','.
 
@@ -29,16 +34,15 @@ def read(filename='', delimiter=',', skip_header=1):
 
     Returns
     -------
-    t : np.array
+    t : np.ndarray
         Time of measurement for the individual measuring points
-    vec : np.array
+    vec : np.ndarray
         Measured values
 
-
-   Comment:
-    Since it can happen that two measured values of the time have the same
-    value, therefore one of the time points is deleted here. In the vector,
-    an average is formed for these two points.
+    Comment:
+        Since it can happen that two measured values of the time have the same
+        value, therefore one of the time points is deleted here. In the vector,
+        an average is formed for these two points.
     """
     if filename == '':
         raise TypeError('No filename has been specified.')
@@ -63,7 +67,7 @@ def read(filename='', delimiter=',', skip_header=1):
     return (t, vec)
 
 
-def sumforline(filename=''):
+def sumforline(filename: str) -> int:
     """
     Counts the lines in a .csv file.
 
@@ -74,7 +78,7 @@ def sumforline(filename=''):
 
     Returns
     -------
-    sum : float
+    sum : int
         Number of lines.
     """
     if filename == '':
@@ -83,16 +87,16 @@ def sumforline(filename=''):
         return sum(1 for line in file)
 
 
-def graph2d(t=np.array([]), y=np.array([]), typ='', formatter='%1.2e',
-         filename='', string_check=''):
+def graph2d(t: np.ndarray, y: np.ndarray, typ: str, filename: str,
+            string_check: str, formatter: str = '%1.2e') -> None:
     """
     Plots a 2d graph.
 
     Parameters
     ----------
-    t : np.array, mandatory
+    t : np.ndarray, mandatory
         The time axis.
-    y : np.array, mandatory
+    y : np.ndarray, mandatory
         Size to be poltted.
     typ : str, optional
         Units of y.
@@ -134,23 +138,20 @@ def graph2d(t=np.array([]), y=np.array([]), typ='', formatter='%1.2e',
         by = conv.string('by ', filename, string_check).replace(",", "")
         fig.text(0.85, 0.9, by, fontsize='x-small')
     ax.grid()
-    return
+    return None
 
 
-def graph3d(xyz=np.array([]), rot=np.array([]), formatter='%1.2e',
-            filename='', string_check=''):
+def graph3d(xyz: np.ndarray, string_check: str,  formatter: str = '%1.2e',
+            filename: str = '') -> None:
     """
     Generate a 3d view of the given trajectory.
 
     Parameters
     ----------
-    xyz : np.array, mandatory
+    xyz : np.ndarray, mandatory
         xyz coordinates of the trajectory.
-    rot : np.array, mandatory
-        DESCRIPTION. The default is np.array([]).
     formatter : string, optional
-         How many digits are displayed on the xyz-axis.
-         The default is str('%1.2e').
+         How many digits are displayed on the xyz-axis. The default is '%1.2e'.
     filename : string, optional
         File name for displaying who performed the measurement.
     string_check : string, optional
@@ -175,38 +176,38 @@ def graph3d(xyz=np.array([]), rot=np.array([]), formatter='%1.2e',
     ax.yaxis.set_major_formatter(_stringf)
     ax.zaxis.set_major_formatter(_stringf)
     ax.plot3D(xyz[:, 0], xyz[:, 1], xyz[:, 2])
-    if filename != '':
+    if filename:
         by = conv.string('by ', filename, string_check).replace(",", "")
         fig.text(0.85, 0.9, by, fontsize='x-small')
 
     ax.grid()
-    return
+    return None
 
 
-def synchronize(t_1=np.array([]), vec_1=np.array([]), t_2=np.array([]),
-                vec_2=np.array([])):
+def synchronize(t_1: np.ndarray, vec_1: np.ndarray, t_2: np.ndarray,
+                vec_2: np.ndarray) -> np.ndarray:
     """
     Synronizes two measurement series so that they have measurement points at
     the same time. The required measurement points are intrapolated.
 
     Parameters
     ----------
-    t_1 : np.array, mandatory
+    t_1 : np.ndarray,, mandatory
         Time of the first measurement series.
-    vec_1 : np.array, mandatory
+    vec_1 : np.ndarray, mandatory
         Measurement data from t_1.
-    t_2 : np.array, mandatory
+    t_2 : np.ndarray, mandatory
         Time of the second measurement series.
-    vec_2 : np.array, mandatory
+    vec_2 : np.ndarray, mandatory
         Measurement data from t_2.
 
     Returns
     -------
-    t : np.array
+    t : np.ndarray
         Synchronous time.
-    vec_1 : np.array
+    vec_1 : np.ndarray
         Synchronous measurement series one.
-    vec_2 : np.array
+    vec_2 : np.ndarray
         Synchronous measurement series two.
     """
     (vec_1_len, _) = vec_1.shape

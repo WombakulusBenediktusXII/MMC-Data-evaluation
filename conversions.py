@@ -2,7 +2,7 @@
 """
 Created on Mon Apr  5 11:08:55 2021
 @author: Anton
-Version: v0.2-alpha
+Version: v0.3-alpha
 
 In the conversions module, the data is converted into a different format.
 These are:
@@ -14,88 +14,82 @@ import numpy as np
 from scipy.interpolate import interp1d, UnivariateSpline
 
 
-def velocity(a=np.array([]), t=np.array([]), err=0.1, v_0=np.array([0, 0, 0]),
-             in_g=True, out_g=True, rot_abs=np.array([]), rot_vel=np.array([]),
-             sensorpos=np.array([1.2, 7.4, 4.5]), int_mode='a', k=50, s=0.8):
+def velocity(a: np.ndarray, t: np.ndarray, acc_dict: dict,
+             **kwargs) -> np.ndarray:
     """
     Calculated the speed from the acceleration.
 
     Parameters
     ----------
-    a : np.array, mandatory
+    a : np.ndarray, mandatory
         Acceleration vector.
-    t : np.array, mandatory
+    t : np.ndarray, mandatory
         Continuous time.
-    err : float, optional
-        Value of error smoothing. The default is 0.1.
-    v_0 : np.array, optional
-        np.array. The default is np.array([0, 0, 0]).
-    in_g : boolean, optional
-        Whether the acceleration is given in factors of g. The default is True.
-    out_g : boolean, optional
-        Whether the gravitation has interfered with the sensors.
-        The default is True.
-    rot_abs : np.array, optional
-        Absolute rotation if given, the velocity vector is output in the
-        laboratory system.
-    rot_vel : np.array, optional
-        Angular velocity if given, the angular acceleration is calculated out,
-        provided that rot_abs is given.
-    sensorpos : np.array, optional
-        Sensor position in 3d in mm. The default is np.array([1.2,7.4,4.5])
-    int_mode : string, optional
-        Which int_mode to use. See conversions.intaxis. The default is 'a'
-    k : int, optional
-        Degree of the smoothing spline or points for averaging in both
-        directions.
-        The default is 5.
-    s : float, optional
-        Positive smoothing factor. The default is 0.8.
+    acc_dict : dict, mandatory
+        The dictionary which stores all constants for the accelerometer.
+    **kwargs:
+        rot_abs : np.ndarray, optional
+            Absolute rotation if given, the velocity vector is output in the
+            laboratory system.
+        rot_vel : np.ndarray, optional
+            Angular velocity if given, the angular acceleration is calculated
+            out, provided that rot_abs is given.
 
     Returns
     -------
-    v : np.array
+    v : np.ndarray
         Velocity vector in the same format as a.
-    t_step : np.array
+    t_step : np.ndarray
         Time steps
     """
-    if in_g is True:
+    err = acc_dict['error']
+    out_g = acc_dict['g_interfered']
+    if acc_dict['in_g']:
         a *= 9.81
 
     (ii, _) = a.shape
     v = np.zeros([ii, 3])
-    v[0, :] = v_0
+    v[0, :] = acc_dict['start_velocity']
     t_step = timestep(t)
     if abs(a).max() <= err*25:
-        raise RuntimeWarning('err is too large, the value is greater than the largest value.')
+        raise RuntimeWarning('err is too large, the value is greater than the\
+                             largest value.')
     elif err != 0 and err > 0:
         (a_err, _) = divmod(abs(a), err)
         a_err *= err * np.sign(a)
         a = a_err
-    # This code may be incorrect: Start/
-    if rot_abs.shape != (0,) and rot_abs.shape == a.shape:
-        a = rotvec(vec=a, rot=rot_abs)
-        if rot_vel.shape != (0,) and rot_vel.shape == a.shape:
-            (x, y, z) = sensorpos / 1000
-            for n in np.arange(0, ):
-                a[n, :] -= np.array([[rot_vel[n, 1]*z - rot_vel[n, 2]*y],
-                                [rot_vel[n, 2]*x - rot_vel[n, 0]*z],
-                                [rot_vel[n, 0]*y - rot_vel[n, 1]*x]])/t_step[n]
+# This code may be incorrect: Start/
+    if 'rot_abs' in kwargs:
+        rot_abs = kwargs['rot_abs']
+        if rot_abs.shape != (0,) and rot_abs.shape == a.shape:
+            a = rotvec(vec=a, rot=rot_abs)
+            if 'rot_vel' in kwargs:
+                rot_vel = kwargs['rot_vel']
+                if rot_vel.shape != (0,) and rot_vel.shape == a.shape:
+                    (x, y, z) = acc_dict['sensorpos'] / 1000
+                    for n in np.arange(0, ):
+                        rot_a = np.array([[rot_vel[n, 1]*z - rot_vel[n, 2]*y],
+                                          [rot_vel[n, 2]*x - rot_vel[n, 0]*z],
+                                          [rot_vel[n, 0]*y - rot_vel[n, 1]*x]])
+                        a[n, :] -= rot_a / t_step[n]
 
-        if out_g is True:
-            a[:, 2] -= 1.03*9.81
-    # /End
-    elif out_g is True:
+            if out_g:
+                a[:, 2] -= 1.03*9.81
+# /End
+    elif out_g:
         a -= (1.03*9.81)/3
+
     for n in np.arange(1, ii):
         v[n, :] = a[n, :] * t_step[n] - v[n-1, :]  # I can't explain the minus,
-# but with a plus it always grows exponentially. And with the minus it corresponds to the expectations.
-    v = intaxis(t=t, vec=v, int_mode=int_mode, k=k, s=s)
+# but with a plus it always grows exponentially. And with the minus it
+# corresponds to the expectations.
+    v = intaxis(t=t, vec=v, int_mode=acc_dict['integration_mode'],
+                k=acc_dict['degree_of_spline'], s=acc_dict['smoothes'])
     return (v, t_step)
 
 
-def rotation(rot_raw=np.array([]), t=np.array([]), rot_mode='', err=0.1,
-             rot_0=np.array([0, 0, 0]), in_grad=True, int_mode='s', k=5, s=0.8):
+def rotation(rot_raw: np.ndarray, t: np.ndarray, rot_mode: str,
+             gyr_dict: dict) -> np.ndarray:
     """
     Determines the rotation in the laboratory coordinate system from the
     measured rotation.
@@ -104,30 +98,17 @@ def rotation(rot_raw=np.array([]), t=np.array([]), rot_mode='', err=0.1,
 
     Parameters
     ----------
-    rot_raw : np.array, mandatory
-        Unsmoothed angular velocities with [[x_1, y_1, z_1],...,[x_n,y_n,z_n]].
-    t : np.array, mandatory
+    rot_raw : np.ndarray, mandatory
+        Unsmoothed angular velocities.
+    t : np.ndarray, mandatory
         Continuous time.
     rot_mode : string, mandatory
         Which mode to use.
             v : velocity mode -> angular velocity, t_step
             r : rotation mode -> absolute rotation, t_step
             c : combination mode -> angular velocity, t_step, absolute rotation
-    err : float, optional
-        Value of error smoothing. The default is 0.1.
-    rot_0 : np.array, optional
-        Initial rotation. The default is np.array([0, 0, 0]).
-        In the same unit as rot_raw.
-    in_grad :  boolean, optional
-        Whether rot_raw is specified in °/s if true than conversion in rad/s.
-        The default ist True.
-    int_mode : string, optional
-        Which int_mode to use. See conversions.intaxis. The default is 's'
-    k : int, optional
-        Degree of the smoothing spline or points for averaging in both directions.
-        The default is 5.
-    s : float, optional
-        Positive smoothing factor. The default is 0.8.
+    gyr_dict : dict, mandatory
+         The dictionary which stores all constants.
 
     Returns
     -------
@@ -138,11 +119,16 @@ def rotation(rot_raw=np.array([]), t=np.array([]), rot_mode='', err=0.1,
     rot_abs : np.array
         absolute rotation
     """
-    rot_raw[0, :] = rot_0[:]
+    err = gyr_dict['error']
+    int_mode = gyr_dict['integration_mode']
+    k = gyr_dict['degree_of_spline']
+    s = gyr_dict['smoothes']
+    rot_raw[0, :] = gyr_dict['start_rotation']
     (ii, _) = rot_raw.shape
     if abs(rot_raw).max() <= err*25:
         raise RuntimeWarning('err is too large, all results would be zero.')
-    if in_grad is True:
+
+    if gyr_dict['in_grad']:
         rot_raw *= np.pi/180
 
     if err != 0 and err > 0:
@@ -150,7 +136,6 @@ def rotation(rot_raw=np.array([]), t=np.array([]), rot_mode='', err=0.1,
         rot_vel *= err * np.sign(rot_raw)
     else:
         rot_vel = rot_raw
-
 
     t_step = timestep(t)
     if rot_mode in 'v':
@@ -173,27 +158,28 @@ def rotation(rot_raw=np.array([]), t=np.array([]), rot_mode='', err=0.1,
         return (rot_vel, t_step, rot_abs)
 
     else:
-        raise ValueError(f'The specified mode is not known: {mode}.')
+        raise ValueError(f'The specified mode is not known: {rot_mode}.')
 
     return (rot, t_step)
 
 
-def xyz(t_step=np.array([]), v=np.array([]), xyz_0=np.array([0, 0, 0])):
+def xyz(t_step: np.ndarray, v: np.ndarray,
+        xyz_0: np.ndarray = np.array([0, 0, 0])) -> np.ndarray:
     """
     Calculates the trajectory from the velocity.
 
     Parameters
     ----------
-    t_step : np.array, mandatory
+    t_step : np.ndarray, mandatory
         Time steps.
-    v : np.array, mandatory
+    v : np.ndarray, mandatory
          Velocity vector.
-    xyz_0 : np.array, optional
+    xyz_0 : np.ndarray, optional
         Start position of the sensor. The default is [0, 0, 0].
 
     Returns
     -------
-    xyz : np.array
+    xyz : np.ndarray
         xyz position of the sensors during the measurement.
     """
     (lenx, leny) = v.shape
@@ -205,34 +191,35 @@ def xyz(t_step=np.array([]), v=np.array([]), xyz_0=np.array([0, 0, 0])):
     return xyz
 
 
-def timestep(t=np.array([])):
+def timestep(t: np.ndarray) -> np.ndarray:
     """
     Determines dt for each measuring step.
 
     Parameters
     ----------
-    t : np.array, mandatory
+    t : np.ndarray, mandatory
         Continuous time.
 
     Returns
     -------
-    t_step : np.array
+    t_step : np.ndarray
         Time steps.
-    """
+    """s
     t_step = np.zeros(t.shape)
     t_step[:] = t[-1] / t.size
     return t_step
 
 
-def intaxis(t=np.array([]), vec=np.array([]), int_mode='', k=5, s=0.8):
+def intaxis(t: np.ndarray, vec: np.ndarray, int_mode: str, k: int = 5,
+            s: float = 0.8) -> np.ndarray:
     """
     Interpolate along all y-axes of the given array.
 
     Parameters
     ----------
-    t : np.array, mandatory
+    t : np.ndarray, mandatory
         Continuous time.
-    vec : np.array, mandatory
+    vec : np.ndarray, mandatory
         The array to be interpolated.
     int_mode : string, mandatory
         Which mode to use.
@@ -240,36 +227,32 @@ def intaxis(t=np.array([]), vec=np.array([]), int_mode='', k=5, s=0.8):
             s : spline fit mode -> 1-D smoothing spline fit
             a : average mode -> average with value and +-k values
     k : int, optional
-        Degree of the smoothing spline or points for averaging in both directions.
+        Degree of the smoothing spline or points for averaging in both
+        directions.
         The default is int(5).
     s : float, optional
         Positive smoothing factor. The default is 0.8.
 
-    Raises
-    ------
-    TypeError
-        DESCRIPTION.
-
     Returns
     -------
-    vec : TYPE
+    vec : np.ndarray
         DESCRIPTION.
     """
     if type(k) is not int:
         raise TypeError(f'k has the wrong type. Is {type(k)} and not int.')
     (x, y) = vec.shape
-    if int_mode in 's':
+    if int_mode in ['s', 'S']:
         for n in np.arange(y):
             spl = UnivariateSpline(x=t, y=vec[:, n], k=k, s=s,
                                    check_finite=False)
             vec[:, n] = spl(t)
-    elif int_mode in 'i':
+    elif int_mode in ['i', 'I']:
         k = _ktest(k)
         for n in np.arange(y):
             fun = interp1d(x=t, y=vec[:, n], kind=k, fill_value='extrapolate',
                            assume_sorted=True)
             vec[:, n] = fun(t)
-    elif int_mode in 'a':
+    elif int_mode in ['a', 'A']:
         _vec = vec
         for n in np.arange(x):
             n_low = n - k
@@ -288,7 +271,7 @@ def intaxis(t=np.array([]), vec=np.array([]), int_mode='', k=5, s=0.8):
     return vec
 
 
-def string(str_='', filename='', string_check=''):
+def string(str_: str, filename: str, string_check: str) -> str:
     """
     Deletes everything from the string except the name of the
     MMC and adds that to the given string.
@@ -305,7 +288,7 @@ def string(str_='', filename='', string_check=''):
            'A'    :  Accelerometer
            'AL'   :  AmbientLight
            'G'    :  Gyroscope
-           'Gr'   :  Gravity
+           'GR'   :  Gravity
            'LA'   :  LinearAcceleration
            'M'    :  Magnetometer
            'P'    :  Pressure
@@ -320,16 +303,16 @@ def string(str_='', filename='', string_check=''):
     if string_check in 'G':
         filename = filename.replace('_Gyroscope.csv', '').replace('input/', '')
     elif string_check in 'A':
-        filename = filename.replace('_Accelerometer.csv', '').replace('input/', '')
-    elif string_check in 'LA':
+        filename = filename.replace('_Accelerometer.csv', '').replace('input/','')
+    elif string_check in ['La', 'LA']:
         filename = filename.replace('_LinearAcceleration.csv', '').replace('input/', '')
     elif string_check in 'Q':
         filename = filename.replace('_Quaterion.csv', '').replace('input/', '')
     elif string_check in 'M':
         filename = filename.replace('_Magnetometer.csv', '').replace('input/', '')
-    elif string_check in 'Gr':
+    elif string_check in ['Gr', 'GR']:
         filename = filename.replace('_Gravity.csv', '').replace('input/', '')
-    elif string_check in 'AL':
+    elif string_check in ['Al', 'AL']:
         filename = filename.replace('_AmbientLight.csv', '').replace('input/', '')
     elif string_check in 'P':
         filename = filename.replace('_Pressure.csv', '').replace('input/', '')
@@ -343,16 +326,16 @@ def string(str_='', filename='', string_check=''):
     return string
 
 
-def rotvec(vec=np.array([]), rot=np.array([])):
+def rotvec(vec: np.ndarray, rot: np.ndarray) -> np.ndarray:
     """
-    Calculates the x, y, z components of vec when it is rotated by rot. As many vectors
-    as desired can be rotated. But vec.size = rot.size.
+    Calculates the x, y, z components of vec when it is rotated by rot. As many
+    1d vectors as desired can be rotated.
 
     Parameters
     ----------
-    vec : np.array, mandatory
+    vec : np.ndarray, mandatory
         The vector to be rotated.
-    rot : np.array, mandatory
+    rot : np.ndarray, mandatory
         Angles for the rotation matrix.
 
     Returns
@@ -360,11 +343,14 @@ def rotvec(vec=np.array([]), rot=np.array([])):
     vec_parts : np.array
         x, y, z-parts of the rotated vec.
     """
-    if vec.shape != rot.shape:
-        raise ValueError(f'rot and vec have not the same shape: {rot.shape} != {vec.shape}')
+    (vec_x, _) = vec.shape
+    (rot_x, rot_y) = rot.shape
+    if vec_x != rot_x:
+        raise ValueError(f'rot and vec do not have the same length on the x-axis: {rot_x} != {vec_x}')
+    elif rot_y != 3:
+        raise ValueError(f'rot is not three dimensional. shape = {rot.shape}')
 
-    (ii, _) = vec.shape
-    for n in np.arange(0, ii):
+    for n in np.arange(0, vec_x):
         vec[n, :] = np.sqrt(vec[n, 0]**2 + vec[n, 1]**2 + vec[n, 2]**2)
         vec[n, 0] *= np.sin(rot[n, 2]) * np.cos(rot[n, 0])
         vec[n, 1] *= np.sin(rot[n, 2]) * np.sin(rot[n, 0])
@@ -373,14 +359,14 @@ def rotvec(vec=np.array([]), rot=np.array([])):
     return vec
 
 
-def _ktest(k=float(3)):
+def _ktest(k: int = 3) -> str:
     """
     Converts the input into a string that can be processed by
     scipy.interpolate.interp1d.
 
     Parameters
     ----------
-    k : float, mandatory
+    k : int, mandatory
         what is to be tested.
 
     Returns
@@ -388,13 +374,15 @@ def _ktest(k=float(3)):
     string : string
         String that can be processed by scipy.interpolate.interp1d.
     """
-    if k == 0:
+    if type(k) is not int:
+        raise ValueError(f'k is not a int. k = {type(k)}')
+    elif k == 0:
         return 'zero'
     elif k == 1:
         return 'slinear'
     elif k == 2:
         return 'quadratic'
-    elif k == 3:
+    elif k == 3 or k == 5:
         return 'cubic'
     else:
-        raise ValueError(f'k is not a valid argument. k can be between 0 and 3. k={k}')
+        raise ValueError(f'k is not a valid argument. k can be between 0...3. k={k}')
