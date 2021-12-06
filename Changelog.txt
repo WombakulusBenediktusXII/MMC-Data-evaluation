@@ -1,66 +1,80 @@
 # -*- coding: utf-8 -*-
 """
-Curent Version: v0.3-alpha
+Curent Version: v0.4-beta
 """
+
+v0.4-beta, 06.12.2021
+    Added:
+		- Program can now do multiprocess
+        - New config options:
+			- [MAIN]: multi_processing, max_processes, save_formatter
+			- [GRAPH]: do_graph, save_graph
+		- New modul data_output for the saving of the calculated data
+			- data_storer, save_to_file, output_array, data_array_test,
+			  data_array_first, data_array_add, str_edit
+		- processing.main as a new entry point in the evaluation
+		- subprocessing.inputtest to check user input.
+		- subprocessing.filename_sortingkey for sorting the specified data to
+		  ensure fast processing during multiprocessing.
+			
+    Misc:
+        - do_output config now called save_output
+		- Optimization of the program
+		- Adaptation the PEP8 is complied with
+		- Better error messages
+		- Updating of config_read_me.txt
+		- The measurement series are now synchronized for the output
+		- For some options 'auto' can be selected now, then the program decides
+		  itself
+
 
 v0.3-alpha, 29.09.2021
     Added:
         - module config_parser to read the config file in
+			- get_config, _main_config, _acc_config, _gyr_config, _graph_config,
+			  _int_config, _float_config, _array_config, _list_config,
+			  _bool_config, _str_config, _test_list
         - config.ini config file see doc.txt for documentation
-        - config_parser.get_config()
-        - config_parser._main_config()
-        - config_parser._acc_config()
-        - config_parser._gyr_config()
-        - config_parser._graph_config()
-        - config_parser._int_config()
-        - config_parser.float_config()
-        - config_parser._array_config()
-        - config_parser._list_config()
-        - config_parser._bool_config()
-        - config_parser._str_config()
-        - config_parser._test_list()
-
-    Removed:
-        -
-
-    Bugs:
-        -
 
     Mics:
-        - doc.txt for the documentation of the config.ini
+        - config_read_me.txt for the documentation of the config.ini
 
 
 v0.2-alpha, 03.09.2021
     Added:
         - .csv output for the calculated energies
             - Output in this format: f'{energy}_{date}_id-{ID}.csv'
-        - Calculation of the total rotaion and translation energies for several measurement series
-        - main.var() where all user-defined variables are included
-        - processing.accgyr() For translation with rotation when the sensor is not positioned in the center
-        - subprocessing.read() to read in .csv files
-        - subprocessing.sumforline() to get number of lines in a .csv file
-        - subprocessing.str_gen() to create it iteration string
-        - subprocessing.graph2d() to create the 2d energy graphs
-        - subprocessing.graph3d() to create the 3d trajectory graphs
-        - subprocessing.synchronize() to to synchronize two measurement series
-        - conversions.vecrot() To rotate a vector
-        - conversions.string() to manipulate strings
-        - conversions.intaxis() to interpolate an axis
-        - conversions.xyz() to compute the trajectory
-        - conversions._ktest()
+        - Calculation of the total rotaion and translation energies for several
+		  measurement series
+        - main.var where all user-defined variables are included
+        - processing.accgyr For translation with rotation when the sensor is not
+		  positioned in the center
+        - subprocessing.read to read in .csv files
+        - subprocessing.sumforline to get number of lines in a .csv file
+        - subprocessing.str_gen to create it iteration string
+        - subprocessing.graph2d to create the 2d energy graphs
+        - subprocessing.graph3d to create the 3d trajectory graphs
+        - subprocessing.synchronize to to synchronize two measurement series
+        - conversions.vecrot to rotate a vector
+        - conversions.string to manipulate strings
+        - conversions.intaxis to interpolate an axis
+        - conversions.xyz to compute the trajectory
+        - conversions._ktest
         - docstring to all functions
 
     Removed:
-        - conversions.xyz_conv() no longer needed, was needed in pre alpha
+        - conversions.xyz_conv no longer needed, was needed in pre alpha
 
     Bugs:
-        - When outputting files, it has not been checked whether these measurements have
-          been performed at all. This could lead to crashes. This test is now in place.
+        - When outputting files, it has not been checked whether these
+		  measurements have been performed at all. This could lead to
+		  crashes. This test is now in place.
 
     Misc:
         - Diagrams with new y-axis format: 1.2f
         - Each diagram is now its own object
-        - conversion.time() now called conversion.timestep()
+        - conversion.time now called conversion.timestep
+
 
 v0.1-alpha, 01.07.2021
     - first release

@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-Created on Sun Aug  8 17:31:14 2021
+Created on Sun Aug  8 2021
 @author: Anton
-Version: v0.3-alpha
+Version: v0.4-beta
 
 
 The Subprocessing module contains all functions responsible for the
@@ -14,17 +14,18 @@ These are:
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
+
 import conversions as conv
 
 
-def read(filename: str, delimiter: str = ',',
-         skip_header: int = 1) -> np.ndarray:
+def read(filename: str, delimiter: str = ',', skip_header: int = 1) -> (
+        np.ndarray, np.ndarray):
     """
     Reads a .csv file. The first line is skipped. The delimiter ist ','.
 
     Parameters
     ----------
-    filename : str, mandatory
+    filename : str
         The name of the file to be read in.
     delimiter : str, optional
         By what character the individual data points are separated
@@ -39,25 +40,25 @@ def read(filename: str, delimiter: str = ',',
     vec : np.ndarray
         Measured values
 
-    Comment:
-        Since it can happen that two measured values of the time have the same
-        value, therefore one of the time points is deleted here. In the vector,
-        an average is formed for these two points.
+
+    Since it can happen that two measured values of the time have the same
+    value, therefore one of the time points is deleted here. In the vector, an
+    average is formed for these two points.
     """
-    if filename == '':
-        raise TypeError('No filename has been specified.')
     data = np.genfromtxt(filename, delimiter=delimiter,
                          skip_header=skip_header)
     t = data[:, 2]
     vec = data[:, 3:]
     ts = len(t)
     eq_n = np.array([], dtype=int)
-    for n in np.arange(0, ts-1):
+    for n in range(ts-1):
         if t[n] == t[n+1]:
             eq_n = np.append(eq_n, n)
+
     if vec.ndim != 1:
         for n in eq_n:
             vec[n, :] = (vec[n, :] + vec[n+1, :]) / 2
+
     else:
         for n in eq_n:
             vec[n] = (vec[n] + vec[n+1]) / 2
@@ -67,91 +68,103 @@ def read(filename: str, delimiter: str = ',',
     return (t, vec)
 
 
-def sumforline(filename: str) -> int:
+def sumforline(filename: str, sub: int = 0) -> int:
     """
     Counts the lines in a .csv file.
 
     Parameters
     ----------
-    filename : str, mandatory
+    filename : str
         File where lines are to be counted
+    sub : int, optional
+        What should be subtracted from the result.
 
     Returns
     -------
-    sum : int
+    res : int
         Number of lines.
     """
-    if filename == '':
-        raise TypeError('No filename has been specified.')
     with open(filename) as file:
-        return sum(1 for line in file)
+        res = sum(1 for line in file)
+
+    res -= sub
+    return res
 
 
-def graph2d(t: np.ndarray, y: np.ndarray, typ: str, filename: str,
-            string_check: str, formatter: str = '%1.2e') -> None:
+def graph2d(t: np.ndarray, y: np.ndarray, typ: str, graph_dict: dict,
+            filename: str, string_check: str) -> None:
     """
     Plots a 2d graph.
 
     Parameters
     ----------
-    t : np.ndarray, mandatory
+    t : np.ndarray
         The time axis.
-    y : np.ndarray, mandatory
+    y : np.ndarray
         Size to be poltted.
+    graph_dict : dict
+        The dictionary which stores all constants for the graph.
+    filename : str, optional
+        Name of the file used for the creation of the graph
     typ : str, optional
         Units of y.
         Character :  Meaning
           'rot'   :  rotational energy
           'trans' :  translation energy
           else    :  generic labeling
-
-    formatter : str, optional
-        How many digits are displayed on the y-axis. The default is '%1.2e'.
-    filename : str, optional
-        Name of the file used for the creation of the graph
     string_check : str, optional
         See conversions.string
 
     Returns
     -------
     None.
-
     """
-    _stringf = FormatStrFormatter(formatter)
+    _stringf = FormatStrFormatter(graph_dict['formatter'])
     fig = plt.figure()
     ax = fig.add_subplot()
     ax.set_xlabel('Time in s')
     if 'rot' in typ:
         ax.set_ylabel('$E_{rot}$ in J')
         ax.set_title('rotational energy as a function of time')
+
     elif 'trans' in typ:
         ax.set_ylabel('$E_{trans}$ in J')
         ax.set_title('translation energy as a function of time')
+
+    elif 'kin' in typ:
+        ax.set_ylabel('$E_{kin}$ in J')
+        ax.set_title('kenetic energy as a function of time')
+
     else:
         ax.set_ylabel('y')
         ax.set_title('y as a function of time t' + filename)
+
     ax.set_ylim(y.min()*0.9, y.max()*1.1)
     ax.set_xlim(t.min()*0.9, t.max()*1.1)
     ax.yaxis.set_major_formatter(_stringf)
     ax.plot(t, y)
-    if filename != '':
+    if filename:
         by = conv.string('by ', filename, string_check).replace(",", "")
         fig.text(0.85, 0.9, by, fontsize='x-small')
+
     ax.grid()
-    return None
+    if graph_dict['save_graph']:
+        fname = 'saved_graphs/' + filename + '.png'
+        fname = fname.replace('input/', '').replace('.csv', '')
+        fig.savefig(fname)
 
 
-def graph3d(xyz: np.ndarray, string_check: str,  formatter: str = '%1.2e',
+def graph3d(xyz: np.ndarray, graph_dict: dict, string_check: str,
             filename: str = '') -> None:
     """
     Generate a 3d view of the given trajectory.
 
     Parameters
     ----------
-    xyz : np.ndarray, mandatory
+    xyz : np.ndarray
         xyz coordinates of the trajectory.
-    formatter : string, optional
-         How many digits are displayed on the xyz-axis. The default is '%1.2e'.
+    graph_dict : dict
+        The dictionary which stores all constants for the graph.
     filename : string, optional
         File name for displaying who performed the measurement.
     string_check : string, optional
@@ -160,9 +173,8 @@ def graph3d(xyz: np.ndarray, string_check: str,  formatter: str = '%1.2e',
     Returns
     -------
     None.
-
     """
-    _stringf = FormatStrFormatter(formatter)
+    _stringf = FormatStrFormatter(graph_dict['formatter'])
     fig = plt.figure()
     ax = plt.axes(projection='3d')
     ax.set_xlabel('x in m')
@@ -181,24 +193,27 @@ def graph3d(xyz: np.ndarray, string_check: str,  formatter: str = '%1.2e',
         fig.text(0.85, 0.9, by, fontsize='x-small')
 
     ax.grid()
-    return None
+    if graph_dict['save_graph']:
+        fname = conv.string('saved_graphs/', filename, string_check) + '_3d.png'
+        fname = fname.replace(',', '')
+        fig.savefig(fname)
 
 
 def synchronize(t_1: np.ndarray, vec_1: np.ndarray, t_2: np.ndarray,
-                vec_2: np.ndarray) -> np.ndarray:
+                vec_2: np.ndarray) -> (np.ndarray, np.ndarray, np.ndarray):
     """
     Synronizes two measurement series so that they have measurement points at
     the same time. The required measurement points are intrapolated.
 
     Parameters
     ----------
-    t_1 : np.ndarray,, mandatory
+    t_1 : np.ndarray,
         Time of the first measurement series.
-    vec_1 : np.ndarray, mandatory
+    vec_1 : np.ndarray
         Measurement data from t_1.
-    t_2 : np.ndarray, mandatory
+    t_2 : np.ndarray
         Time of the second measurement series.
-    vec_2 : np.ndarray, mandatory
+    vec_2 : np.ndarray
         Measurement data from t_2.
 
     Returns
@@ -210,14 +225,106 @@ def synchronize(t_1: np.ndarray, vec_1: np.ndarray, t_2: np.ndarray,
     vec_2 : np.ndarray
         Synchronous measurement series two.
     """
-    (vec_1_len, _) = vec_1.shape
-    (vec_2_len, _) = vec_2.shape
-    if vec_1_len <= vec_2_len:
-        len_ = vec_1_len
-    else:
-        len_ = vec_2_len
+    (vec_1_x, vec_1_y) = vec_1.shape
+    (vec_2_x, vec_2_y) = vec_2.shape
+    if vec_1_x <= vec_2_x:
+        vec_temp = np.zeros((vec_1_x, vec_1_y))
+        for n in range(0, vec_1_y):
+            vec_temp[:, n] = np.interp(t_1, t_2, vec_2[:, n])
+        t = t_1
+        vec_2 = vec_temp
 
-    t = t_2[:len_]
-    vec_1 = vec_1[:len_, :]
-    vec_2 = vec_2[:len_, :]
+    else:
+        vec_temp = np.zeros((vec_2_x, vec_2_y))
+        for n in range(0, vec_2_y):
+            vec_temp[:, n] = np.interp(t_2, t_1, vec_1[:, n])
+        t = t_2
+        vec_1 = vec_temp
+
     return (t, vec_1, vec_2)
+
+
+def input_test(question: str, n: int = 0, n_max: int = 2) -> bool:
+    '''
+    Ask the user for an input and test whether the input is true or false.
+
+    Parameters
+    ----------
+    question : str
+        Question that the user should answer.
+    n : int, optional
+        How many times the question has been asked. The default is 0.
+    n_max : int, optional
+        How many times the question may be answered maximum ambiguous.
+
+    Raises
+    ------
+    ValueError
+        If the maximum number of ambiguous entries has been reached.
+
+    Returns
+    -------
+    bool
+        User response.
+
+    '''
+    test = input(f'{question} ')
+    if test in ['False', 'false', '0', 'No', 'no', 'N', 'n']:
+        res = False
+
+    elif test in ['True', 'true', '1', 'Yes', 'yes', 'Y', 'y']:
+        res = True
+
+    else:
+        if n < n_max:
+            n += 1
+            print('Valid inputs are: y for yes and n for no.')
+            print(f'{test} is not a valid input.')
+            input_test(question, n=n, n_max=n_max)
+
+        else:
+            raise ValueError(f'{test} is not a valid input.')
+
+    print('')
+    return res
+
+
+def filename_sorting_key(filename: str) -> int:
+    '''
+    Returns a value for the given file name by which it can be sorted.
+
+    Parameters
+    ----------
+    filename : str
+        The name of the file to be sorted.
+
+    Returns
+    -------
+    key : int
+        Sort key for the given name.
+
+    '''
+    if 'AccGyr' in filename:
+        key = 0
+    elif 'Accelerometer' in filename:
+        key = 1
+    elif 'Gyroscope' in filename:
+        key = 2
+    elif 'LinearAcceleration' in filename:
+        key = 4
+    elif 'Quaterion' in filename:
+        key = 8
+    elif 'Magnetometer' in filename:
+        key = 16
+    elif 'Gravity' in filename:
+        key = 32
+    elif 'AmbientLight' in filename:
+        key = 64
+    elif 'Pressure' in filename:
+        key = 128
+    elif 'Temperature' in filename:
+        key = 256
+    else:
+        key = 32768
+
+    return key

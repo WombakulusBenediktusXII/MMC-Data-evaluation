@@ -1,23 +1,66 @@
 # -*- coding: utf-8 -*-
 """
-Created on Wed Jun 30 18:52:07 2021
+Created on Wed Jun 30 2021
 @author: Anton
-Version: v0.3-alpha
+Version: v0.4-beta
 
-The Processing module contains all functions responsible for the direct processing
-of raw data.
+The Processing module contains all functions responsible for the direct
+processing of raw data.
 These are:
-    accelerometer(), gyroscope(), accgyr(), failed(), str_gen()
+    main(), accelerometer(), gyroscope(), accgyr(), failed(), str_gen()
 """
 
-import numpy as np
 import time
+import numpy as np
+
 import subprocessing as sub
 import conversions as conv
 
 
-def accelerometer(filename: str, acc_dict: dict,
-                  graph_dict: dict) -> np.ndarray:
+def main(filename: str, acc_dict: dict, gyr_dict: dict,
+         graph_dict: dict) -> tuple:
+    '''
+    Selects the correct analysis method.
+
+    Parameters
+    ----------
+    filename : str
+        Name of the file being processed.
+    acc_dict : dict
+        The dictionary which stores all constants for the accelerometer.
+    gyr_dict : dict
+        The dictionary which stores all constants for the gyroscope.
+    graph_dict : dict, madatory
+        The dictionary which stores all constants for the graph.
+
+    Returns
+    -------
+    data : tuple
+        The calculated energies for the processed file.
+
+    '''
+    if 'Accelerometer' in filename:
+        (E_trans, t) = accelerometer(filename, acc_dict, graph_dict)
+        data = (filename, t, E_trans, None, None)
+
+    elif 'Gyroscope' in filename:
+        (E_rot, t) = gyroscope(filename, gyr_dict, graph_dict)
+        data = (filename, t, None, E_rot, None)
+
+    elif 'AccGyr' in filename:
+        (E_trans, E_rot,
+         E_kin, t) = accgyr(filename, acc_dict, gyr_dict, graph_dict)
+        data = (filename, t, E_trans, E_rot, E_kin)
+
+    else:
+        failed(filename)
+        data = (filename, None, None, None, None)
+
+    return data
+
+
+def accelerometer(filename: str, acc_dict: dict, graph_dict: dict) -> (
+        np.ndarray, np.ndarray):
     """
     Read the file of the accelerometer and calculate the speed from it.
     From this the translations energy is calculated and output as a
@@ -25,9 +68,9 @@ def accelerometer(filename: str, acc_dict: dict,
 
     Parameters
     ----------
-    filename : str, mandatory
+    filename : str
         The name of the file to be evaluated.
-    acc_dict : dict, mandatory
+    acc_dict : dict
         The dictionary which stores all constants for the accelerometer.
     graph_dict : dict, madatory
         The dictionary which stores all constants for the graph.
@@ -39,23 +82,27 @@ def accelerometer(filename: str, acc_dict: dict,
     t : np.ndarray
         Time of measurement for the individual translation energies.
     """
-    time_local_start = time.time()
+    time_local_start = time.perf_counter()
+    print(f'{filename}: ', end='')
     (t, a) = sub.read(filename)
     (v, t_step) = conv.velocity(a=a, t=t, acc_dict=acc_dict)
     E_trans = 0.5 * acc_dict['m'] * (v[:, 0]**2+v[:, 1]**2+v[:, 2]**2)
-    sub.graph2d(t, E_trans, typ='trans', filename=filename, string_check='A',
-                formatter=graph_dict['formatter'])
-    if acc_dict['trajectory']:
-        xyz = conv.xyz(t_step, v)
-        sub.graph3d(xyz=xyz, filename=filename, string_check='A',
-                    formatter=graph_dict['formatter'])
-    time_local_end = time.time()
+    if graph_dict['do_graph']:
+        sub.graph2d(t=t, y=E_trans, typ='trans', filename=filename,
+                    string_check='A', graph_dict=graph_dict)
+        if acc_dict['trajectory']:
+            xyz = conv.xyz(t_step, v)
+            sub.graph3d(xyz=xyz, filename=filename, string_check='A',
+                        graph_dict=graph_dict)
+
+    time_local_end = time.perf_counter()
     time_local = round((time_local_end - time_local_start), 3)
-    print(f'It took {time_local}s to process {filename}.')
+    print(f'took {time_local}s to process.')
     return (E_trans, t)
 
 
-def gyroscope(filename: str, gyr_dict: dict, graph_dict: dict) -> np.ndarray:
+def gyroscope(filename: str, gyr_dict: dict, graph_dict: dict) -> (np.ndarray,
+                                                                   np.ndarray):
     """
     Reads the file of the gyroscope. The rotation energy is then calculated
     from this. BUT it is calculated for a solid full sphere, so for everything
@@ -64,9 +111,9 @@ def gyroscope(filename: str, gyr_dict: dict, graph_dict: dict) -> np.ndarray:
 
     Parameters
     ----------
-    filename : str, mandatory
+    filename : str
         The name of the file to be evaluated.
-    gyr_dict : dict, mandatory
+    gyr_dict : dict
         The dictionary which stores all constants for the gyroscope.
     graph_dict : dict, madatory
         The dictionary which stores all constants for the graph.
@@ -78,22 +125,24 @@ def gyroscope(filename: str, gyr_dict: dict, graph_dict: dict) -> np.ndarray:
     t : np.ndarray
         Time of measurement for the individual translation energies.
     """
-    time_local_start = time.time()
+    time_local_start = time.perf_counter()
+    print(f'{filename}: ', end='')
     (t, rot_raw) = sub.read(filename)
-    (rot, t_step) = conv.rotation(rot_raw, t, rot_mode='v', gyr_dict=gyr_dict)
-    omega = np.sqrt(rot[:, 0]**2 + rot[:, 1]**2 + rot[:, 2]**2)
+    (rot_vel, _, _) = conv.rotation(rot_raw, t, rot_mode='v', gyr_dict=gyr_dict)
+    omega = np.sqrt(rot_vel[:, 0]**2 + rot_vel[:, 1]**2 + rot_vel[:, 2]**2)
     E_rot = 0.4 * gyr_dict['m'] * (gyr_dict['r']**2) * omega**2
-    sub.graph2d(t=t, y=E_rot, typ='rot', filename=filename, string_check='G',
-                formatter=graph_dict['formatter'])
-    time_local_end = time.time()
+    if graph_dict['do_graph']:
+        sub.graph2d(t=t, y=E_rot, typ='rot', filename=filename,
+                    string_check='G', graph_dict=graph_dict)
+
+    time_local_end = time.perf_counter()
     time_local = round((time_local_end - time_local_start), 3)
-    print(f'It took {time_local}s to process {filename}.')
+    print(f'took {time_local}s to process.')
     return (E_rot, t)
 
 
-# A better method must be found to synchronize the two measurement series.
-def accgyr(filename: str, acc_dict: dict, gyr_dict: dict,
-           graph_dict: dict) -> np.ndarray:
+def accgyr(filename: str, acc_dict: dict, gyr_dict: dict, graph_dict: dict) -> (
+        np.ndarray, np.ndarray, np.ndarray, np.ndarray):
     """
     Reads the data from the gyroscope and the accelerometer. Calculated the
     rotational energy and the translational energy and subtracted the angular
@@ -101,11 +150,11 @@ def accgyr(filename: str, acc_dict: dict, gyr_dict: dict,
 
     Parameters
     ----------
-    filename : str, mandatory
+    filename : str
         The name of the file to be evaluated.
-    acc_dict : dict, mandatory
+    acc_dict : dict
         The dictionary which stores all constants for the accelerometer.
-    gyr_dict : dict, mandatory
+    gyr_dict : dict
         The dictionary which stores all constants for the gyroscope.
     graph_dict : dict, madatory
         The dictionary which stores all constants for the graph.
@@ -121,8 +170,9 @@ def accgyr(filename: str, acc_dict: dict, gyr_dict: dict,
     t : np.ndarray
         Time of measurement for the individual energies.
     """
-    time_local_start = time.time()
+    time_local_start = time.perf_counter()
     sensorname = filename.replace("_AccGyr.csv", "").replace("input/", "")
+    print(f'From {sensorname} the gyroscope and accelerometer: ', end='')
     filename_gyr = f'input/{sensorname}_Gyroscope.csv'
     (t_gyr, rot_raw) = sub.read(filename_gyr)
     filename_acc = f'input/{sensorname}_Accelerometer.csv'
@@ -139,17 +189,19 @@ def accgyr(filename: str, acc_dict: dict, gyr_dict: dict,
     E_trans = 0.5 * acc_dict['m'] * (v[:, 0]**2+v[:, 1]**2+v[:, 2]**2)
     E_kin = E_trans + E_rot
 
-    sub.graph2d(t, E_trans, typ='trans', filename=filename_acc,
-                string_check='A', formatter=graph_dict['formatter'])
-    sub.graph2d(t, E_rot, typ='rot', filename=filename_gyr, string_check='G',
-                formatter=graph_dict['formatter'])
-    if acc_dict['trajectory']:
-        sub.graph3d(xyz=xyz, string_check='A', filename=filename_acc,
-                    formatter=graph_dict['formatter'])
-    time_local_end = time.time()
+    if graph_dict['do_graph']:
+        sub.graph2d(t, E_trans, typ='trans', filename=filename_acc,
+                    string_check='A', graph_dict=graph_dict)
+        sub.graph2d(t=t, y=E_rot, typ='rot', filename=filename_gyr,
+                    string_check='G', graph_dict=graph_dict)
+        sub.graph2d(t, E_kin, 'kin', graph_dict, filename_acc, 'A')
+        if acc_dict['trajectory']:
+            sub.graph3d(xyz=xyz, string_check='A', filename=filename_acc,
+                        graph_dict=graph_dict)
+
+    time_local_end = time.perf_counter()
     time_local = round((time_local_end - time_local_start), 3)
-    print(f'It took {time_local}s to process from {sensorname} the gyroscope\
-          and accelerometer.')
+    print(f'took {time_local}s to process.')
     return (E_trans, E_rot, E_kin, t)
 
 
@@ -160,23 +212,23 @@ def failed(filename: str) -> None:
 
     Parameters
     ----------
-    filename : str, mandatory
+    filename : str
         The name of the file to be evaluated.
     """
     print(f'No analysis method is known for {filename}. Please check.')
-    pass
+    print('However, other files are still being analyzed.')
 
 
-def str_gen(MMC_names: list, measurements: list,
+def str_gen(mmc_names: list, measurements: list,
             location: str = 'input/') -> list:
     """
     This function creates the input string.
 
     Parameters
     ----------
-    MMC_names : list, mandatory
+    mmc_names : list
         Names of the chips used.
-    measurements : list, mandatory
+    measurements : list
         What measurements have been made.
     location : str, optional
         Folder in which the data is stored. The default ist 'input/'
@@ -187,12 +239,9 @@ def str_gen(MMC_names: list, measurements: list,
         List which contain the data strings
     """
     filenames = []
-    for name in MMC_names:
+    for name in mmc_names:
         for measured in measurements:
             fstring = f'{location}{name}_{measured}.csv'
             filenames.append(fstring)
+
     return filenames
-
-
-def gen_out_put_array(energy_array, array_to_add, t, counter, mode):
-    return energy_array

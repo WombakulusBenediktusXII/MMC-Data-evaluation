@@ -1,18 +1,19 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Sep 13 14:36:05 2021
+Created on Mon Sep 13 2021
 @author: Anton
-Version: v0.3-alpha
+Version: v0.4-beta
 
-In the config_parser module, the config.ini is read in and processed..
+In the config_parser module, the config.ini is read in and processed.
 These are:
     get_config, _main_config, _acc_config, _gyr_config, _graph_config,
-    _int_config, float_config, _array_config, _list_config, _bool_config,
-    _str_config, _test_list
+    int_config, float_config, array_config, list_config, bool_config,
+    str_config, test_list
 """
 
-import numpy as np
 from configparser import ConfigParser
+from os import cpu_count
+import numpy as np
 
 
 def get_config(filename: str = 'config.ini') -> dict:
@@ -40,24 +41,24 @@ def get_config(filename: str = 'config.ini') -> dict:
     config.read(filename)
 
     try:
-        main_dict = _main_config(config['MAIN'])
+        main_dict = main_config(config['MAIN'])
     except KeyError:
-        main_dict = _main_config(list())
+        main_dict = main_config(list())
 
     try:
-        acc_dict = _acc_config(config['ACCELEROMETER'])
+        acc_dict = acc_config(config['ACCELEROMETER'])
     except KeyError:
-        acc_dict = _acc_config(list())
+        acc_dict = acc_config(list())
 
     try:
-        gyr_dict = _gyr_config(config['GYROSCOPE'])
+        gyr_dict = gyr_config(config['GYROSCOPE'])
     except KeyError:
-        gyr_dict = _gyr_config(list())
+        gyr_dict = gyr_config(list())
 
     try:
-        graph_dict = _graph_config(config['GRAPH'])
+        graph_dict = graph_config(config['GRAPH'])
     except KeyError:
-        graph_dict = _graph_config(list())
+        graph_dict = graph_config(list())
 
     acc_dict.update({'r': main_dict['r']})
     acc_dict.update({'m': main_dict['m']})
@@ -66,7 +67,7 @@ def get_config(filename: str = 'config.ini') -> dict:
     return (main_dict, acc_dict, gyr_dict, graph_dict)
 
 
-def _main_config(config: ConfigParser) -> dict:
+def main_config(config: ConfigParser) -> dict:
     '''
     Produce the main dictionary.
 
@@ -82,17 +83,20 @@ def _main_config(config: ConfigParser) -> dict:
 
     '''
     main_dict = dict(config)
-    _float_config(main_dict, 'm', 0.01496)
-    _float_config(main_dict, 'r', 0.02925)
-    _list_config(main_dict, 'names', [''])
-    _list_config(main_dict, 'filenames', ['input/Test_Datei.csv'])
-    _list_config(main_dict, 'measurements', [''])
-    _bool_config(main_dict, 'filenames_auto', True)
-    _bool_config(main_dict, 'do_output', False)
+    int_config(main_dict, 'max_processes', cpu_count())
+    float_config(main_dict, 'm', 0.023)
+    float_config(main_dict, 'r', 0.019)
+    list_config(main_dict, 'names', [''])
+    list_config(main_dict, 'filenames', ['input/Test_Datei.csv'])
+    list_config(main_dict, 'measurements', [''])
+    bool_config(main_dict, 'filenames_auto', True)
+    bool_config(main_dict, 'save_output', False)
+    bool_config(main_dict, 'multi_processing', 'AUTO')
+    formatter_config(main_dict, 'save_formatter', '%1.5e')
     return main_dict
 
 
-def _acc_config(config: ConfigParser) -> dict:
+def acc_config(config: ConfigParser) -> dict:
     '''
     Produce the accelerometer dictionary.
 
@@ -108,20 +112,20 @@ def _acc_config(config: ConfigParser) -> dict:
 
     '''
     acc_dict = dict(config)
-    _int_config(acc_dict, 'degree_of_spline', 50)
-    _float_config(acc_dict, 'error', 0.001)
-    _float_config(acc_dict, 'smoothes', 0.8)
-    _array_config(acc_dict, 'sensorpos',
-                 np.array([1.2, 7.4, 4.5]))
-    _array_config(acc_dict, 'start_velocity', np.array([0, 0, 0]))
-    _bool_config(acc_dict, 'in_g', True)
-    _bool_config(acc_dict, 'g_interfered', True)
-    _bool_config(acc_dict, 'trajectory', False)
-    _str_config(acc_dict, 'integration_mode', 'a')
+    int_config(acc_dict, 'degree_of_spline', 50)
+    float_config(acc_dict, 'error', 0.001)
+    float_config(acc_dict, 'smoothes', 0.8)
+    array_config(acc_dict, 'sensorpos',
+                 np.array([0.0012, 0.0074, 0.0045]))
+    array_config(acc_dict, 'start_velocity', np.array([0, 0, 0]))
+    bool_config(acc_dict, 'in_g', True)
+    bool_config(acc_dict, 'g_interfered', True)
+    bool_config(acc_dict, 'trajectory', False)
+    str_config(acc_dict, 'integration_mode', 'a')
     return acc_dict
 
 
-def _gyr_config(config: ConfigParser) -> dict:
+def gyr_config(config: ConfigParser) -> dict:
     '''
     Produce the gyroscope dictionary.
 
@@ -137,16 +141,16 @@ def _gyr_config(config: ConfigParser) -> dict:
 
     '''
     gyr_dict = dict(config)
-    _int_config(gyr_dict, 'degree_of_spline', 5)
-    _float_config(gyr_dict, 'error', 0.01)
-    _float_config(gyr_dict, 'smoothes', 0.8)
-    _array_config(gyr_dict, 'start_rotation', np.array([0, 0, 0]))
-    _bool_config(gyr_dict, 'in_grad', True)
-    _str_config(gyr_dict, 'integration_mode', 's')
+    int_config(gyr_dict, 'degree_of_spline', 5)
+    float_config(gyr_dict, 'error', 0.01)
+    float_config(gyr_dict, 'smoothes', 0.8)
+    array_config(gyr_dict, 'start_rotation', np.array([0, 0, 0]))
+    bool_config(gyr_dict, 'in_grad', True)
+    str_config(gyr_dict, 'integration_mode', 's')
     return gyr_dict
 
 
-def _graph_config(config: ConfigParser) -> dict:
+def graph_config(config: ConfigParser) -> dict:
     '''
     Produce the graph dictionary.
 
@@ -162,14 +166,13 @@ def _graph_config(config: ConfigParser) -> dict:
 
     '''
     graph_dict = dict(config)
-    if 'formatter' in graph_dict:
-        graph_dict['formatter'] = '%' + graph_dict['formatter']
-    else:
-        graph_dict.update({'formatter': '%1.2e'})
+    bool_config(graph_dict, 'do_graph', True)
+    bool_config(graph_dict, 'save_graph', False)
+    formatter_config(graph_dict, 'formatter', '%1.2e')
     return graph_dict
 
 
-def _int_config(test_dict: dict, config: str, default: int) -> None:
+def int_config(test_dict: dict, config: str, default: int) -> None:
     '''
     Converts the read string into an integer and updates the dictionary.
 
@@ -186,14 +189,14 @@ def _int_config(test_dict: dict, config: str, default: int) -> None:
     -------
     None
     '''
-    if config in test_dict:
+    try:
         test_dict[config] = int(test_dict[config])
-    else:
+    except KeyError:
         test_dict.update({config: default})
-    pass
+        print(f'The default value has been selected for {config}. This is {default}.')
 
 
-def _float_config(test_dict: dict, config: str, default: float) -> None:
+def float_config(test_dict: dict, config: str, default: float) -> None:
     '''
     Converts the read string into an float and updates the dictionary.
 
@@ -210,14 +213,14 @@ def _float_config(test_dict: dict, config: str, default: float) -> None:
     -------
     None
     '''
-    if config in test_dict:
+    try:
         test_dict[config] = float(test_dict[config])
-    else:
+    except KeyError:
         test_dict.update({config: default})
-    pass
+        print(f'The default value has been selected for {config}. This is {default}.')
 
 
-def _array_config(test_dict: dict, config: str, default: np.ndarray) -> None:
+def array_config(test_dict: dict, config: str, default: np.ndarray) -> None:
     '''
     Converts the read string into an np.ndarray and updates the dictionary.
 
@@ -234,14 +237,15 @@ def _array_config(test_dict: dict, config: str, default: np.ndarray) -> None:
     -------
     None
     '''
-    if config in test_dict:
-        test_dict[config] = np.array(test_dict[config].replace(' ', '').split(','), dtype=float)
-    else:
+    try:
+        test_dict[config] = np.array(test_dict[config].replace(' ', '').split(','),
+                                     dtype=float)
+    except KeyError:
         test_dict.update({config: default})
-    pass
+        print(f'The default value has been selected for {config}. This is {default}.')
 
 
-def _list_config(test_dict: dict, config: str, default: list) -> None:
+def list_config(test_dict: dict, config: str, default: list) -> None:
     '''
     Converts the read string into an list and updates the dictionary.
 
@@ -258,15 +262,15 @@ def _list_config(test_dict: dict, config: str, default: list) -> None:
     -------
     None
     '''
-    if config in test_dict:
+    try:
         test_str = test_dict[config].replace(' ', '')
         test_dict[config] = test_str.split(',')
-    else:
+    except KeyError:
         test_dict.update({config: default})
-    pass
+        print(f'The default value has been selected for {config}. This is {default}.')
 
 
-def _bool_config(test_dict: dict, config: str, default: bool) -> None:
+def bool_config(test_dict: dict, config: str, default: bool) -> None:
     '''
     Converts the read string into an boolean and updates the dictionary.
 
@@ -283,21 +287,24 @@ def _bool_config(test_dict: dict, config: str, default: bool) -> None:
     -------
     None
     '''
-    if config in test_dict:
-        if test_dict[config] in _test_list(True):
+    try:
+        if test_dict[config] in test_list(True):
             test_dict[config] = True
-        elif test_dict[config] in _test_list(False):
+        elif test_dict[config] in test_list(False):
             test_dict[config] = False
+        elif test_dict[config] in ['Auto', 'AUTO', 'auto']:
+            test_dict[config] = None
         else:
-            _test_list(test_dict[config], config)
-    else:
+            test_list(test_dict[config], config)
+    except KeyError:
         test_dict.update({config: default})
-    pass
+        print(f'The default value has been selected for {config}. This is {default}.')
 
 
-def _str_config(test_dict: bool, config: str, default: str) -> None:
+def str_config(test_dict: dict, config: str, default: str) -> None:
     '''
-    Tests if the key is present in the dictionary, if not the default value is used.
+    Tests if the key is present in the dictionary, if not the default value is
+    used.
 
     Parameters
     ----------
@@ -312,14 +319,36 @@ def _str_config(test_dict: bool, config: str, default: str) -> None:
     -------
     None
     '''
-    if config in test_dict:
-        pass
-    else:
+    if config not in test_dict:
         test_dict.update({config: default})
-    pass
+        print(f'The default value has been selected for {config}. This is {default}.')
 
 
-def _test_list(test: bool, config: str = '') -> list:
+def formatter_config(test_dict: dict, config: str, default: str) -> None:
+    '''
+    Converts the read string into an formatter and updates the dictionary.
+
+    Parameters
+    ----------
+    test_dict : dict
+        The dictionary to be changed.
+    config : str
+        Which key to retrieve.
+    default : str
+        The default value for this key if it does not exist.
+
+    Returns
+    -------
+    None
+    '''
+    try:
+        test_dict[config] = '%' + test_dict[config]
+    except KeyError:
+        test_dict.update({config: default})
+        print(f'The default value has been selected for {config}. This is {default}.')
+
+
+def test_list(test: bool, config: str = '') -> list:
     '''
     Gives a list of values to be interpreted as true or false.
 
@@ -331,10 +360,10 @@ def _test_list(test: bool, config: str = '') -> list:
         Which key is tested. Is there to generate a better error message if the
         input cannot be interpreted as true or false.
 
-    Raises
-    ------
+    Raise
+    -----
     TypeError
-        DESCRIPTION.
+        If the given config key cannot be interpreted as True or False.
 
     Returns
     -------
@@ -343,9 +372,15 @@ def _test_list(test: bool, config: str = '') -> list:
 
     '''
     if test is True:
-        return ['True', 'Yes', '1', 'Y', 'true', 'yes', 'y']
+        res = ['True', 'Yes', '1', 'Y', 'true', 'yes', 'y']
     elif test is False:
-        return ['False', 'No', '0', 'F', 'false', 'no', 'f']
+        res = ['False', 'No', '0', 'F', 'false', 'no', 'f']
     else:
-        conf = config
-        raise TypeError(f'The given value for {conf} is neither true or false')
+        raise TypeError(f'The given value for {config} is neither true or false')
+
+    return res
+
+
+if __name__ == '__main__':
+    for n in get_config():
+        print(n)

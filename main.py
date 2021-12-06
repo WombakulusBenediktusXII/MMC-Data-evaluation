@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Apr  5 11:08:55 2021
+Created on Mon Apr  5 2021
 @author: Anton
-Version: v0.3-alpha
+Version: v0.4-beta
 
 Copyright (C) 2021  Smart Dust <contact@smartdust-dyt.de>
 
@@ -16,124 +16,102 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 """
+__version__ = 'v0.4-beta'
+__author__ = 'SmartDust'
 
-from datetime import date
 import time
-import numpy as np
+import os
+from multiprocessing import Pool, Manager
 from matplotlib import pyplot as plt
+
 import processing as proces
-import conversions as conv
+import subprocessing as sub
 from config_parser import get_config
+from data_output import data_storer
 
 
 def main() -> None:
+    '''
+    This is the main function of this programm
+    '''
+    global time_global_start
     (main_dict, acc_dict,
      gyr_dict, graph_dict) = get_config(filename='config.ini')
+
     if main_dict['filenames_auto']:
         filenames = proces.str_gen(main_dict['names'],
                                    main_dict['measurements'])
     else:
         filenames = main_dict['filenames']
+    MMC_LEN = len(filenames)
+    data = []
 
-    mmc_len = len(main_dict['names'])
-    n = 0
-    i = 0
-    k = 0
-    str_rot = 'Time in s, rotational energy in J, '
-    str_trans = 'Time in s, translation energy in J, '
-    str_kin = 'Time in s, kenetic energy in J, '
-    for filename in filenames:
-        if 'Accelerometer' in filename:
-            (E_trans_now, t) = proces.accelerometer(filename, acc_dict,
-                                                    graph_dict)
-            if main_dict['do_output']:
-                if n == 0:
-                    E_trans = E_trans_now
-                    n = 1
-                    str_trans = conv.string(str_rot, filename, 'A')
+#  Check if the graph storage folder exists, if not it will be created.
+    if graph_dict['save_graph'] or main_dict['multi_processing']:
+        if not os.path.exists('saved_graphs'):
+            os.makedirs('saved_graphs')
+            print('The directory "saved_graph" has been created automatically.\
+                  \nIn these will be the saved graphs.\n')
 
-                else:
-                    E_trans = np.c_[E_trans, E_trans_now]
-                    E_trans[:, 0] += E_trans_now[:]/mmc_len
-                    str_trans = conv.string(str_rot, filename, 'A')
+#  Decision whether multiprocessing should be applied
+    mmc_lens = MMC_LEN + 2*str(filenames).count('AccGyr')
+    if main_dict['multi_processing'] is None:
+        if mmc_lens > 8:
+            main_dict['multi_processing'] = True
+            print('It has been decided to use multiprocessing.')
 
-        elif 'Gyroscope' in filename:
-            (E_rot_now, t) = proces.gyroscope(filename, gyr_dict, graph_dict)
-            if main_dict['do_output']:
-                if i == 0:
-                    E_rot = E_rot_now
-                    i = 1
-                    str_rot = conv.string(str_rot, filename, 'G')
-
-                else:
-                    E_rot = np.c_[E_rot, E_rot_now]
-                    E_rot[:, 0] += E_rot_now[:]/mmc_len
-                    str_rot = conv.string(str_rot, filename, 'G')
-        elif 'AccGyr' in filename:
-            (E_trans_now, E_rot_now,
-             E_kin_now, t) = proces.accgyr(filename, acc_dict, gyr_dict,
-                                           graph_dict)
-            if main_dict['do_output']:
-                if n == 0:
-                    E_trans = E_trans_now
-                    n = 1
-                    str_trans = conv.string(str_rot, filename, 'AccGyr')
-                else:
-                    E_trans = np.c_[E_trans, E_trans_now]
-                    E_trans[:, 0] += E_trans_now[:]/MMC_LEN
-                    str_trans = conv.string(str_rot, filename, 'AccGyr')
-
-                if i == 0:
-                    E_rot = E_rot_now
-                    i = 1
-                    str_rot = conv.string(str_rot, filename, 'AccGyr')
-                else:
-                    E_rot = np.c_[E_rot, E_rot_now]
-                    E_rot[:, 0] += E_rot_now[:]/mmc_len
-                    str_rot = conv.string(str_rot, filename, 'AccGyr')
-
-                if k == 0:
-                    E_kin = E_kin_now
-                    k = 1
-                    str_kin = conv.string(str_kin, filename, 'AccGyr')
-                else:
-                    E_kin = np.c_[E_kin, E_kin_now]
-                    E_kin[:, 0] += E_kin_now[:]/mmc_len
-                    str_kin = conv.string(str_kin, filename, 'AccGyr')
         else:
-            proces.failed(filename)
+            main_dict['multi_processing'] = False
+            print('It has been decided not to use multiprocessing.\n')
 
-    if main_dict['do_output']:
-        time_local_start = time.time()
-        to_day = date.today()
-        ID = np.random.randint(0, 10000)
-        test_string = ''
-        for string in main_dict['measurements']:
-            test_string += string
-        if 'Gyroscope' in test_string or 'AccGyr' in test_string:
-            output_string = f'output/E_rot_{to_day}_id-{ID}.csv'
-            np.savetxt(output_string, np.c_[t, E_rot], delimiter=",",
-                       header=str_rot)
-        if 'Accelerometer' in test_string or 'AccGyr' in test_string:
-            output_string = f'output/E_trans_{to_day}_id-{ID}.csv'
-            np.savetxt(output_string, np.c_[t, E_trans], delimiter=",",
-                       header=str_trans)
-        if 'AccGyr' in test_string:
-            output_string = f'output/E_kin_{to_day}_id-{ID}.csv'
-            np.savetxt(output_string, np.c_[t, E_kin], delimiter=",",
-                       header=str_kin)
-        time_local_end = time.time()
+#  Ask if multiprocessing should be used in case of unoptimal conditions.
+    elif main_dict['multi_processing'] and mmc_lens <= 8:
+        print(f'Multiprocessing should be applied, but only {mmc_lens} file(s)\
+have been specified. This can lead to slower processing.')
+        time_mid_point = time.perf_counter()
+        question = 'Should multiprocerssing nevertheless be continued?'
+        main_dict['multi_processing'] = sub.input_test(question)
+        time_global_start += time.perf_counter() - time_mid_point
+
+#  Inisalization and application of multiprocessing.
+    if main_dict['multi_processing']:
+        graph_dict['save_graph'] = True
+        graph_dict['do_graph'] = True
+        workers = main_dict['max_processes']
+        filenames.sort(key=sub.filename_sorting_key)
+        print(f'Multiprocessing has been started. {workers} simultaneous processes are used.')
+        if mmc_lens > 32:
+            manager = Manager()
+            acc_dict = manager.dict(acc_dict)
+            gyr_dict = manager.dict(gyr_dict)
+            graph_dict = manager.dict(graph_dict)
+            print(f'The dictionaries are shared between all processes to save\
+ RAM. Reason {mmc_lens} files need to be analyzed.')
+
+        iterable = [(filenames[n], acc_dict, gyr_dict, graph_dict)
+                    for n in range(MMC_LEN)]
+        with Pool(processes=workers) as pool:
+            pools = pool.starmap_async(proces.main, iterable)
+            data = pools.get()
+
+#  Serial processing of the data.
+    else:
+        for filename in filenames:
+            data_now = proces.main(filename, acc_dict, gyr_dict, graph_dict)
+            data.append(data_now)
+
+    if main_dict['save_output']:
+        time_local_start = time.perf_counter()
+        data_storer(data, main_dict['save_formatter'])
+        time_local_end = time.perf_counter()
         time_local = round((time_local_end - time_local_start), 3)
         print(f'It took {time_local}s to create the output files.')
-    return None
 
 
 if __name__ == '__main__':
-    print('Program starts')
-    time_global_start = time.time()
+    print('Program starts...\n')
+    time_global_start = time.perf_counter()
     main()
-    time_global_end = time.time()
-    time_global = round((time_global_end - time_global_start), 3)
-    print(f'It took {time_global}s to run the program.')
+    time_global = round((time.perf_counter() - time_global_start), 3)
+    print(f'\nIt took {time_global}s to run the program.')
     plt.show()
-    plt.close()
